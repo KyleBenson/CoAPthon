@@ -72,7 +72,7 @@ class CoAP(object):
         self.stopped.set()
         for event in self.to_be_stopped:
             event.set()
-        if self._receiver_thread is not None:
+        if self._receiver_thread is not None and self._receiver_thread.isAlive():
             self._receiver_thread.join()
         try:
             # Python does not close the OS FD on socket.close()

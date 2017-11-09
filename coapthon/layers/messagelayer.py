@@ -1,6 +1,8 @@
 import logging
 import random
 import time
+import ipaddress
+
 from coapthon.messages.message import Message
 from coapthon import defines
 from coapthon.messages.request import Request
@@ -104,15 +106,17 @@ class MessageLayer(object):
         try:
             host, port = response.source
         except AttributeError:
+            logger.warning("Failed to extract response.source!  Ignoring...")
             return
         key_mid = str_append_hash(host, port, response.mid)
         key_mid_multicast = str_append_hash(defines.ALL_COAP_NODES, port, response.mid)
         key_token = str_append_hash(host, port, response.token)
         key_token_multicast = str_append_hash(defines.ALL_COAP_NODES, port, response.token)
+        logger.warning("receiving response: mid=%s, token=%s" % (response.mid, response.token))
         if key_mid in self._transactions.keys():
             transaction = self._transactions[key_mid]
             if response.token != transaction.request.token:
-                logger.warning("Tokens does not match -  response message " + str(host) + ":" + str(port))
+                logger.warning("Token does not match despite mid existing -  response message " + str(host) + ":" + str(port))
                 return None, False
         elif key_token in self._transactions_token:
             transaction = self._transactions_token[key_token]
@@ -121,7 +125,7 @@ class MessageLayer(object):
         elif key_token_multicast in self._transactions_token:
             transaction = self._transactions_token[key_token_multicast]
             if response.token != transaction.request.token:
-                logger.warning("Tokens does not match -  response message " + str(host) + ":" + str(port))
+                logger.warning("Token for multicast does not match -  response message " + str(host) + ":" + str(port))
                 return None, False
         else:
             logger.warning("Un-Matched incoming response message " + str(host) + ":" + str(port))
@@ -203,6 +207,16 @@ class MessageLayer(object):
         try:
             host, port = request.destination
         except AttributeError:
+            logger.warning("Failed to extract request.source!  Aborting...")
+            return
+
+        # XXX: since multicast address requests can envoke responses from multiple different servers whose hostnames we
+        # don't currently know, we should treat all multicast requests as to the same address: the ALL_COAP_NODES one
+        try:
+            addr = ipaddress.ip_address(unicode(host))
+            if addr.is_multicast:
+                host = defines.ALL_COAP_NODES if isinstance(addr, ipaddress.IPv4Address) else defines.ALL_COAP_NODES_IPV6
+        except ipaddress.AddressValueError:
             return
 
         request.timestamp = time.time()

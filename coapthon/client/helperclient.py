@@ -110,7 +110,7 @@ class HelperClient(object):
         request.observe = 1
 
         self.send_request(request, callback=None, timeout=timeout)
-        
+
     def cancel_observing(self, response, explicit):  # pragma: no cover
         """
         Delete observing on the remote server.
